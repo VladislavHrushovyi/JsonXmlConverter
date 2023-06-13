@@ -1,3 +1,7 @@
-﻿// See https://aka.ms/new-console-template for more information
+﻿using JsonXmlConverter;
 
-Console.WriteLine("Hello, World!");
+var converter = new Converter("inputXml.xml");
+
+var resultJsonString = converter.FromXmlToJson();
+
+File.WriteAllText("resultJson.json", resultJsonString);
