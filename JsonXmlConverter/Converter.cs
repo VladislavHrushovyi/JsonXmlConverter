@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using System.Xml;
+using Newtonsoft.Json;
 
 namespace JsonXmlConverter;
 
@@ -17,18 +18,17 @@ public class Converter
         var xmlDoc = new XmlDocument();
         xmlDoc.Load(_path);
         var rootNode = xmlDoc.DocumentElement!;
-        var result = ParseXml(rootNode);
+        var result = ConvertXmlNodeToJson(rootNode);
         return result;
     }
 
-    private string ParseXml(XmlNode node)
+    private string ConvertXmlNodeToJson(XmlNode node)
     {
         var json = new StringBuilder();
 
         if (node.NodeType == XmlNodeType.Element)
         {
             json.Append("{");
-
             if (node.Attributes != null && node.Attributes.Count > 0)
             {
                 json.Append("\"@attributes\": {");
@@ -45,35 +45,59 @@ public class Converter
 
             if (node.HasChildNodes)
             {
-                var childNodes = new List<string>();
+                var groupedChildNodes = node.ChildNodes.Cast<XmlNode>()
+                    .Where(n => n.NodeType != XmlNodeType.Text) // Exclude text nodes
+                    .GroupBy(n => n.Name)
+                    .ToList();
 
-                foreach (XmlNode childNode in node.ChildNodes)
+                foreach (var group in groupedChildNodes)
                 {
-                    string childJson = ParseXml(childNode);
-                    childNodes.Add(childJson);
+                    if (group.Count() > 1)
+                    {
+                        json.AppendFormat("\"{0}\": [", group.Key);
+
+                        var childNodes = new List<string>();
+
+                        foreach (XmlNode childNode in group)
+                        {
+                            string childJson = ConvertXmlNodeToJson(childNode);
+                            childNodes.Add(childJson);
+                        }
+
+                        json.Append(string.Join(",", childNodes));
+                        json.Append("],");
+                    }
+                    else
+                    {
+                        string childJson = ConvertXmlNodeToJson(group.First());
+
+                        if (group.First().HasChildNodes && group.First().FirstChild.NodeType == XmlNodeType.Text)
+                        {
+                            string textValue = EscapeString(group.First().FirstChild.Value);
+                            json.AppendFormat("\"{0}\": {1},", group.Key, $"\"{textValue}\"");
+                        }
+                        else
+                        {
+                            json.AppendFormat("\"{0}\": {1},", group.Key, childJson);
+                        }
+                    }
                 }
 
-                json.Append($"\"{node.Name}\": {(childNodes.Count > 1 ? "[" : "")}");
-                json.Append(string.Join(",", childNodes));
-                json.Append($"{(childNodes.Count > 1 ? "]" : "")}");
-            }
-            else
-            {
-                json.Append($"\"{node.Name}\": null");
+                if (json[json.Length - 1] == ',')
+                {
+                    json.Length--; // Remove the trailing comma
+                }
             }
 
             json.Append("}");
         }
-        else if (node.NodeType == XmlNodeType.Text)
-        {
-            json.Append($"\"{EscapeString(node.ParentNode.Name)}\": \"{EscapeString(node.InnerText)}\"");
-        }
 
         return json.ToString();
     }
-    private string EscapeString(string s)
+
+    private string EscapeString(string input)
     {
-        return s.Replace("\"", "\\\"");
+        return input.Replace("\"", "\\\"");
     }
 
     public XmlDocument FromJsonToXml()
