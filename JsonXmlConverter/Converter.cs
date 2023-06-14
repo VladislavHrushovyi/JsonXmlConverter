@@ -1,4 +1,5 @@
-﻿using System.Xml;
+﻿using System.Text;
+using System.Xml;
 
 namespace JsonXmlConverter;
 
@@ -16,79 +17,69 @@ public class Converter
         var xmlDoc = new XmlDocument();
         xmlDoc.Load(_path);
         var rootNode = xmlDoc.DocumentElement!;
-        var result = (Dictionary<string, object>)ParseXml(rootNode);
-
-        return result.ToString();
+        var result = ParseXml(rootNode);
+        return result;
     }
 
-    private object ParseXml(XmlNode node)
+    private string ParseXml(XmlNode node)
     {
+        var json = new StringBuilder();
+
         if (node.NodeType == XmlNodeType.Element)
         {
-            var element = (XmlElement)node;
+            json.Append("{");
 
-            if (element.HasAttributes || element.HasChildNodes)
+            if (node.Attributes != null && node.Attributes.Count > 0)
             {
-                var jsonObject = new Dictionary<string, object>();
+                json.Append("\"@attributes\": {");
+                var attributes = new List<string>();
 
-                if (element.HasAttributes)
+                foreach (XmlAttribute attr in node.Attributes)
                 {
-                    var attributes = new Dictionary<string, string>();
-                    foreach (XmlAttribute attribute in element.Attributes)
-                    {
-                        attributes[attribute.Name] = attribute.Value;
-                    }
-                    jsonObject["@attributes"] = attributes;
+                    attributes.Add($"\"{attr.Name}\": \"{attr.Value}\"");
                 }
 
-                if (element.HasChildNodes)
-                {
-                    var childNodes = element.ChildNodes;
-                    var groupedChildNodes = new Dictionary<string, List<object>>();
-
-                    foreach (XmlNode childNode in childNodes)
-                    {
-                        var childObjectName = childNode.Name;
-
-                        if (!groupedChildNodes.ContainsKey(childObjectName))
-                        {
-                            groupedChildNodes[childObjectName] = new List<object>();
-                        }
-
-                        var childObject = ParseXml(childNode);
-                        groupedChildNodes[childObjectName].Add(childObject);
-                    }
-
-                    foreach (var kvp in groupedChildNodes)
-                    {
-                        if (kvp.Value.Count == 1)
-                        {
-                            jsonObject[kvp.Key] = kvp.Value[0];
-                        }
-                        else
-                        {
-                            jsonObject[kvp.Key] = kvp.Value;
-                        }
-                    }
-                }
-
-                return jsonObject;
+                json.Append(string.Join(",", attributes));
+                json.Append("},");
             }
+
+            if (node.HasChildNodes)
+            {
+                var childNodes = new List<string>();
+
+                foreach (XmlNode childNode in node.ChildNodes)
+                {
+                    string childJson = ParseXml(childNode);
+                    childNodes.Add(childJson);
+                }
+
+                json.Append($"\"{node.Name}\": {(childNodes.Count > 1 ? "[" : "")}");
+                json.Append(string.Join(",", childNodes));
+                json.Append($"{(childNodes.Count > 1 ? "]" : "")}");
+            }
+            else
+            {
+                json.Append($"\"{node.Name}\": null");
+            }
+
+            json.Append("}");
         }
         else if (node.NodeType == XmlNodeType.Text)
         {
-            return node.InnerText;
+            json.Append($"\"{EscapeString(node.ParentNode.Name)}\": \"{EscapeString(node.InnerText)}\"");
         }
 
-        return null;
+        return json.ToString();
     }
-
+    private string EscapeString(string s)
+    {
+        return s.Replace("\"", "\\\"");
+    }
 
     public XmlDocument FromJsonToXml()
     {
         XmlDocument xmlObjResult = new();
-        
-        
+
 
         return xmlObjResult;
     }
