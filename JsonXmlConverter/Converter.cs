@@ -41,9 +41,9 @@ public class Converter
 
         if (node.NodeType == XmlNodeType.Element)
         {
-            json.Append("{");
+            json.Append('{');
 
-            if (node.Attributes != null && node.Attributes.Count > 0)
+            if (node.Attributes is { Count: > 0 })
             {
                 json.Append("\"@attributes\": {");
                 var attributes = new List<string>();
@@ -60,7 +60,7 @@ public class Converter
             if (node.HasChildNodes)
             {
                 var groupedChildNodes = node.ChildNodes.Cast<XmlNode>()
-                    .Where(n => n.NodeType != XmlNodeType.Text) // Exclude text nodes
+                    //.Where(n => n.NodeType != XmlNodeType.Text)
                     .GroupBy(n => n.Name)
                     .ToList();
 
@@ -68,7 +68,7 @@ public class Converter
                 {
                     if (group.Count() > 1)
                     {
-                        json.AppendFormat("\"{0}\": [", group.Key);
+                        json.Append($"\"{group.Key}\": [");
 
                         var childNodes = new List<string>();
 
@@ -88,22 +88,22 @@ public class Converter
                         if (group.First().HasChildNodes && group.First().FirstChild.NodeType == XmlNodeType.Text)
                         {
                             string textValue = EscapeString(group.First().FirstChild.Value);
-                            json.AppendFormat("\"{0}\": {1},", group.Key, $"\"{textValue}\"");
+                            json.Append($"\"{group.Key}\": \"{textValue}\",");
                         }
                         else
                         {
-                            json.AppendFormat("\"{0}\": {1},", group.Key, childJson);
+                            json.Append($"\"{group.Key}\": {childJson},");
                         }
                     }
                 }
 
-                if (json[json.Length - 1] == ',')
+                if (json[^1] == ',')
                 {
-                    json.Length--; // Remove the trailing comma
+                    json.Length--;
                 }
             }
 
-            json.Append("}");
+            json.Append('}');
         }
 
         return json.ToString();
