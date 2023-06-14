@@ -18,8 +18,21 @@ public class Converter
         var xmlDoc = new XmlDocument();
         xmlDoc.Load(_path);
         var rootNode = xmlDoc.DocumentElement!;
-        var result = ConvertXmlNodeToJson(rootNode);
-        return result;
+        var json = new StringBuilder();
+        json.Append("{");
+        json.AppendFormat($"\"{rootNode.Name}\":");
+        foreach (XmlNode node in xmlDoc.ChildNodes)
+        {
+            json.Append(ConvertXmlNodeToJson(node));
+        }
+
+        if (json[json.Length - 1] == ',')
+        {
+            json.Length--; // Remove the trailing comma
+        }
+
+        json.Append("}");
+        return json.ToString();
     }
 
     private string ConvertXmlNodeToJson(XmlNode node)
@@ -29,6 +42,7 @@ public class Converter
         if (node.NodeType == XmlNodeType.Element)
         {
             json.Append("{");
+
             if (node.Attributes != null && node.Attributes.Count > 0)
             {
                 json.Append("\"@attributes\": {");
