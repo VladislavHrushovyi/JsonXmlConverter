@@ -1,7 +1,12 @@
 ﻿using JsonXmlConverter;
 
-var converter = new Converter("inputXml.xml");
+var converter1 = new Converter("inputXml.xml");
 
-var resultJsonString = converter.FromXmlToJson();
+var resultJsonString = converter1.FromXmlToJson();
 
 File.WriteAllText("resultJson.json", resultJsonString);
+
+var converter2 = new Converter("inputJson.json");
+var resultXmlString = converter2.FromJsonToXml();
+
+File.WriteAllText("resultXml.xml", resultXmlString);
