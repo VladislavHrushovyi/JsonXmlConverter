@@ -147,6 +147,7 @@ public class Converter
                 {
                     if (property.Value.ValueKind == JsonValueKind.Array)
                     {
+                        //xml.Append('>');
                         JsonNodeToXml(property.Value, xml, property.Name);    
                     }
                     else
@@ -162,9 +163,18 @@ public class Converter
         {
             foreach (var item in jsonElement.EnumerateArray())
             {
-                xml.Append($"<{parentElementName}");
-                JsonNodeToXml(item, xml, parentElementName);
-                xml.Append($"</{parentElementName}>");
+                if (item.ValueKind is not JsonValueKind.Array or JsonValueKind.Object)
+                {
+                    xml.Append($"<{parentElementName}>");
+                    JsonNodeToXml(item, xml, parentElementName);
+                    xml.Append($"</{parentElementName}>");   
+                }
+                else
+                {
+                    xml.Append($"<{parentElementName}");
+                    JsonNodeToXml(item, xml, parentElementName);
+                    xml.Append($"</{parentElementName}>");
+                }
             }
         }
         else if (jsonElement.ValueKind == JsonValueKind.String)
