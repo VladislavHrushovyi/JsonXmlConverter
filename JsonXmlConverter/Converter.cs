@@ -13,7 +13,7 @@ public class Converter
         _path = path;
     }
 
-    public string FromXmlToJson()
+    public string? FromXmlToJson()
     {
         var xmlDoc = new XmlDocument();
         xmlDoc.Load(_path);
@@ -26,7 +26,7 @@ public class Converter
             json.Append(ConvertXmlNodeToJson(node));
         }
 
-        if (json[^1] == ',')
+        if (json[json.Length - 1] == ',')
         {
             json.Length--; // Remove the trailing comma
         }
@@ -41,9 +41,9 @@ public class Converter
 
         if (node.NodeType == XmlNodeType.Element)
         {
-            json.Append('{');
+            json.Append("{");
 
-            if (node.Attributes is { Count: > 0 })
+            if (node.Attributes != null && node.Attributes.Count > 0)
             {
                 json.Append("\"@attributes\": {");
                 var attributes = new List<string>();
@@ -60,7 +60,7 @@ public class Converter
             if (node.HasChildNodes)
             {
                 var groupedChildNodes = node.ChildNodes.Cast<XmlNode>()
-                    //.Where(n => n.NodeType != XmlNodeType.Text)
+                    .Where(n => n.NodeType != XmlNodeType.Text) // Exclude text nodes
                     .GroupBy(n => n.Name)
                     .ToList();
 
@@ -68,7 +68,7 @@ public class Converter
                 {
                     if (group.Count() > 1)
                     {
-                        json.Append($"\"{group.Key}\": [");
+                        json.AppendFormat("\"{0}\": [", group.Key);
 
                         var childNodes = new List<string>();
 
@@ -88,22 +88,22 @@ public class Converter
                         if (group.First().HasChildNodes && group.First().FirstChild.NodeType == XmlNodeType.Text)
                         {
                             string textValue = EscapeString(group.First().FirstChild.Value);
-                            json.Append($"\"{group.Key}\": \"{textValue}\",");
+                            json.AppendFormat("\"{0}\": {1},", group.Key, $"\"{textValue}\"");
                         }
                         else
                         {
-                            json.Append($"\"{group.Key}\": {childJson},");
+                            json.AppendFormat("\"{0}\": {1},", group.Key, childJson);
                         }
                     }
                 }
 
-                if (json[^1] == ',')
+                if (json[json.Length - 1] == ',')
                 {
-                    json.Length--;
+                    json.Length--; // Remove the trailing comma
                 }
             }
 
-            json.Append('}');
+            json.Append("}");
         }
 
         return json.ToString();
@@ -121,7 +121,7 @@ public class Converter
         var jsonString = File.ReadAllText(_path);
         var jsonObj = JsonDocument.Parse(jsonString);
         JsonNodeToXml(jsonObj.RootElement, xml);
-        
+
         return xml.ToString();
     }
 
@@ -134,22 +134,27 @@ public class Converter
                 if (property.Name == "@attributes")
                 {
                     var attrBuilder = new StringBuilder();
-                    xml.Append($"<{parentElementName}");
+                    //xml.Append($"<{parentElementName}");
                     foreach (var attributeProperty in property.Value.EnumerateObject())
                     {
-                        attrBuilder.AppendFormat($" {attributeProperty.Name}=\"{attributeProperty.Value.GetString()}\"");
+                        attrBuilder.AppendFormat(
+                            $" {attributeProperty.Name}=\"{attributeProperty.Value.GetString()}\"");
                     }
 
                     xml.Append($"{attrBuilder}>");
-                    
                 }
                 else
                 {
-                    //var openTag = ">";
-                    //var closeTag = string.IsNullOrEmpty(property.Name) ? "" : $"</{property.Name}>";
-                    xml.Append($"<{property.Name}>");
-                    JsonNodeToXml(property.Value, xml, property.Name);
-                    xml.Append($"</{property.Name}>");
+                    if (property.Value.ValueKind == JsonValueKind.Array)
+                    {
+                        JsonNodeToXml(property.Value, xml, property.Name);    
+                    }
+                    else
+                    {
+                        xml.Append($"<{property.Name}>");
+                        JsonNodeToXml(property.Value, xml, property.Name);
+                        xml.Append($"</{property.Name}>");   
+                    }
                 }
             }
         }
@@ -157,7 +162,7 @@ public class Converter
         {
             foreach (var item in jsonElement.EnumerateArray())
             {
-                //xml.Append($"<{parentElementName}>");
+                xml.Append($"<{parentElementName}");
                 JsonNodeToXml(item, xml, parentElementName);
                 xml.Append($"</{parentElementName}>");
             }
