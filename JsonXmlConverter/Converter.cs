@@ -38,6 +38,13 @@ public class Converter
     private string ConvertXmlNodeToJson(XmlNode node)
     {
         var json = new StringBuilder();
+        var type = node.NodeType;
+
+        if (node.Name == "#text")
+        {
+            return node.InnerText;
+            
+        }
 
         if (node.NodeType == XmlNodeType.Element)
         {
@@ -60,7 +67,7 @@ public class Converter
             if (node.HasChildNodes)
             {
                 var groupedChildNodes = node.ChildNodes.Cast<XmlNode>()
-                    .Where(n => n.NodeType != XmlNodeType.Text)
+                    //.Where(n => n.NodeType != XmlNodeType.Text)
                     .GroupBy(n => n.Name)
                     .ToList();
 
@@ -74,8 +81,15 @@ public class Converter
 
                         foreach (XmlNode childNode in group)
                         {
-                            string childJson = ConvertXmlNodeToJson(childNode);
-                            childNodes.Add(childJson);
+                            if (childNode.FirstChild == childNode.LastChild)
+                            {
+                                childNodes.Add($"\"{childNode.FirstChild.InnerText}\"");
+                            }
+                            else
+                            {
+                                string childJson = ConvertXmlNodeToJson(childNode);
+                                childNodes.Add(childJson);   
+                            }
                         }
 
                         json.Append(string.Join(",", childNodes));
@@ -88,7 +102,7 @@ public class Converter
                         if (group.First().HasChildNodes && group.First().FirstChild.NodeType == XmlNodeType.Text)
                         {
                             string textValue = EscapeString(group.First().FirstChild.Value);
-                            json.Append($"\"{group.Key}\": {$"\"{textValue}\""},");
+                            json.Append($"\"{group.Key}\": \"{textValue}\",");
                         }
                         else
                         {
